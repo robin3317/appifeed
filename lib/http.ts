@@ -13,6 +13,10 @@ export function unauthorized(message = "Not authenticated"): Response {
   return Response.json({ error: message }, { status: 401 });
 }
 
+export function notFound(message = "Not found"): Response {
+  return Response.json({ error: message }, { status: 404 });
+}
+
 export function conflict(message: string): Response {
   return Response.json({ error: message }, { status: 409 });
 }

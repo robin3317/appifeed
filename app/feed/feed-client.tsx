@@ -1,8 +1,15 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState } from "react";
-import type { FeedPost, FeedResponse, Visibility } from "@/lib/types";
+import { useState, useEffect } from "react";
+import type {
+  FeedPost,
+  FeedResponse,
+  Visibility,
+  LikeToggleResponse,
+  LikersResponse,
+  FeedAuthor,
+} from "@/lib/types";
 
 const card: React.CSSProperties = {
   background: "#fff",
@@ -180,10 +187,130 @@ function PostCard({ post }: { post: FeedPost }) {
         />
       )}
 
-      <footer style={{ marginTop: 12, color: "#666", fontSize: 14, display: "flex", gap: 16 }}>
-        <span>{post.likeCount} likes</span>
-        <span>{post.commentCount} comments</span>
-      </footer>
+      <PostActions post={post} />
     </article>
+  );
+}
+
+function PostActions({ post }: { post: FeedPost }) {
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [likedByMe, setLikedByMe] = useState(post.likedByMe);
+  const [busy, setBusy] = useState(false);
+  const [showLikers, setShowLikers] = useState(false);
+
+  async function toggleLike() {
+    if (busy) return;
+    const nextLiked = !likedByMe;
+    // Optimistic update.
+    setLikedByMe(nextLiked);
+    setLikeCount((c) => Math.max(0, c + (nextLiked ? 1 : -1)));
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/posts/${post.id}/like`, {
+        method: nextLiked ? "POST" : "DELETE",
+      });
+      if (!res.ok) throw new Error("request failed");
+      const data: LikeToggleResponse = await res.json();
+      // Reconcile with the server's authoritative count.
+      setLikeCount(data.likeCount);
+      setLikedByMe(data.likedByMe);
+    } catch {
+      // Revert on failure.
+      setLikedByMe(!nextLiked);
+      setLikeCount((c) => Math.max(0, c + (nextLiked ? -1 : 1)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <footer
+        style={{
+          marginTop: 12,
+          color: "#666",
+          fontSize: 14,
+          display: "flex",
+          gap: 16,
+          alignItems: "center",
+        }}
+      >
+        <button
+          type="button"
+          onClick={toggleLike}
+          aria-pressed={likedByMe}
+          style={{
+            border: "none",
+            background: "none",
+            cursor: "pointer",
+            color: likedByMe ? "#e5484d" : "#666",
+            fontSize: 14,
+            padding: 0,
+          }}
+        >
+          {likedByMe ? "♥" : "♡"} Like
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowLikers((s) => !s)}
+          disabled={likeCount === 0}
+          style={{
+            border: "none",
+            background: "none",
+            cursor: likeCount === 0 ? "default" : "pointer",
+            color: "#666",
+            padding: 0,
+          }}
+        >
+          {likeCount} {likeCount === 1 ? "like" : "likes"}
+        </button>
+        <span>
+          {post.commentCount}{" "}
+          {post.commentCount === 1 ? "comment" : "comments"}
+        </span>
+      </footer>
+
+      {showLikers && <WhoLiked postId={post.id} />}
+    </>
+  );
+}
+
+function WhoLiked({ postId }: { postId: string }) {
+  const [users, setUsers] = useState<FeedAuthor[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/posts/${postId}/likes`)
+      .then((r) => r.json())
+      .then((d: LikersResponse) => active && setUsers(d.users))
+      .catch(() => active && setUsers([]));
+    return () => {
+      active = false;
+    };
+  }, [postId]);
+
+  if (users === null) {
+    return <p style={{ fontSize: 13, color: "#888", marginTop: 8 }}>Loading…</p>;
+  }
+  return (
+    <ul
+      style={{
+        marginTop: 8,
+        paddingLeft: 16,
+        fontSize: 13,
+        color: "#555",
+        listStyle: "disc",
+      }}
+    >
+      {users.length === 0 ? (
+        <li style={{ listStyle: "none", marginLeft: -16 }}>No likes yet.</li>
+      ) : (
+        users.map((u) => (
+          <li key={u.id}>
+            {u.firstName} {u.lastName}
+          </li>
+        ))
+      )}
+    </ul>
   );
 }

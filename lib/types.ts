@@ -24,3 +24,13 @@ export type FeedResponse = {
   posts: FeedPost[];
   nextCursor: string | null;
 };
+
+export type LikeToggleResponse = {
+  likeCount: number;
+  likedByMe: boolean;
+};
+
+export type LikersResponse = {
+  users: FeedAuthor[];
+  nextCursor: string | null;
+};
