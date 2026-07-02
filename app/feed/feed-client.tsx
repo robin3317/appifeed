@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 import type { FeedPost, FeedResponse, Visibility } from "@/lib/types";
 import { LikeControl } from "./like-control";
 import CommentThread from "./comment-thread";
@@ -62,6 +63,7 @@ export default function FeedClient({ initial }: { initial: FeedResponse }) {
 function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) {
   const [text, setText] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("PUBLIC");
+  const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,20 +72,33 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
     if (!text.trim() || submitting) return;
     setSubmitting(true);
     setError(null);
-    const res = await fetch("/api/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, visibility }),
-    });
-    setSubmitting(false);
-    if (!res.ok) {
+    try {
+      let imageUrl: string | undefined;
+      if (file) {
+        // Direct browser -> Vercel Blob upload via a signed token from /api/upload.
+        const blob = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/upload",
+          contentType: file.type,
+        });
+        imageUrl = blob.url;
+      }
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(imageUrl ? { text, visibility, imageUrl } : { text, visibility }),
+      });
+      if (!res.ok) throw new Error("post failed");
+      const post: FeedPost = await res.json();
+      onCreated(post);
+      setText("");
+      setVisibility("PUBLIC");
+      setFile(null);
+    } catch {
       setError("Could not publish your post. Please try again.");
-      return;
+    } finally {
+      setSubmitting(false);
     }
-    const post: FeedPost = await res.json();
-    onCreated(post);
-    setText("");
-    setVisibility("PUBLIC");
   }
 
   return (
@@ -97,11 +112,33 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
         maxLength={5000}
         style={{ resize: "vertical", width: "100%" }}
       />
+
+      {file && (
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
+          <img
+            src={URL.createObjectURL(file)}
+            alt="preview"
+            style={{ height: 56, width: 56, objectFit: "cover", borderRadius: 6 }}
+          />
+          <span style={{ fontSize: 13, color: "#555", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+            {file.name}
+          </span>
+          <button
+            type="button"
+            onClick={() => setFile(null)}
+            style={{ border: "none", background: "none", color: "#e5484d", cursor: "pointer" }}
+          >
+            Remove
+          </button>
+        </div>
+      )}
+
       {error && (
         <p role="alert" style={{ color: "#e5484d", marginTop: 8 }}>
           {error}
         </p>
       )}
+
       <div
         style={{
           display: "flex",
@@ -109,19 +146,30 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
           alignItems: "center",
           marginTop: 12,
           gap: 12,
+          flexWrap: "wrap",
         }}
       >
-        <label style={{ color: "#555", fontSize: 14 }}>
-          Visibility{" "}
-          <select
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value as Visibility)}
-            style={{ padding: "4px 8px" }}
-          >
-            <option value="PUBLIC">Public</option>
-            <option value="PRIVATE">Private (only me)</option>
-          </select>
-        </label>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <label style={{ color: "#555", fontSize: 14, cursor: "pointer" }}>
+            📷 Image
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              style={{ display: "none" }}
+            />
+          </label>
+          <label style={{ color: "#555", fontSize: 14 }}>
+            <select
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as Visibility)}
+              style={{ padding: "4px 8px" }}
+            >
+              <option value="PUBLIC">Public</option>
+              <option value="PRIVATE">Private (only me)</option>
+            </select>
+          </label>
+        </div>
         <button
           type="submit"
           className="_btn1"

@@ -19,11 +19,23 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+// Only accept image URLs that live on our Vercel Blob store, so a client can't
+// make us persist an arbitrary/forged URL (review hardening note).
+const blobImageUrl = z
+  .url()
+  .max(2000)
+  .refine((u) => {
+    try {
+      return new URL(u).hostname.endsWith(".blob.vercel-storage.com");
+    } catch {
+      return false;
+    }
+  }, "Image must be an uploaded file");
+
 export const createPostSchema = z.object({
   text: z.string().trim().min(1, "Post text is required").max(5000),
   visibility: z.enum(["PUBLIC", "PRIVATE"]).default("PUBLIC"),
-  // Set by the (later) direct-to-storage upload; the API validates it is a URL.
-  imageUrl: z.url().max(2000).optional(),
+  imageUrl: blobImageUrl.optional(),
 });
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 
