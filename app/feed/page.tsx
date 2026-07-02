@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { getFeedPage } from "@/lib/feed";
@@ -14,30 +15,42 @@ export default async function FeedPage() {
   const initial = await getFeedPage(user.id);
 
   return (
-    <main
-      style={{
-        maxWidth: 640,
-        margin: "0 auto",
-        padding: "32px 16px",
-        fontFamily: "Poppins, sans-serif",
-      }}
+    <div
+      className="_layout _layout_main_wrapper"
+      style={{ minHeight: "100vh", background: "#f4f5f7" }}
     >
       <header
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          background: "#fff",
+          borderBottom: "1px solid #ececec",
+          padding: "12px 0",
           marginBottom: 24,
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
         }}
       >
-        <h1 style={{ margin: 0, fontSize: 24 }}>Feed</h1>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <span style={{ color: "#666" }}>{user.name}</span>
-          <LogoutButton />
+        <div
+          className="container _custom_container"
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+        >
+          <img src="/assets/images/logo.svg" alt="Buddy Script" style={{ height: 32 }} />
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <span style={{ color: "#555", fontWeight: 500 }}>{user.name}</span>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
-      <FeedClient initial={initial} />
-    </main>
+      <div className="container _custom_container">
+        <div className="_layout_inner_wrap">
+          <div className="row justify-content-center">
+            <div className="col-xl-7 col-lg-9 col-md-12 col-sm-12">
+              <FeedClient initial={initial} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,14 +1,13 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
 import type { CommentNode, CommentsResponse } from "@/lib/types";
-import { LikeControl } from "./like-control";
+import { useLike } from "./use-like";
+import { WhoLiked } from "./who-liked";
 
-// Lazy comment thread for one post. Mounted only when the post is expanded
-// (review 5A). Fetches its first page on mount; supports "Load more" for
-// top-level comments. Replies are 2 levels deep — a reply to a reply is
-// re-parented server-side (2A), and the returned node's parentId always points
-// at the top-level comment, so we append it there.
+const AVATAR = "/assets/images/comment_img.png";
+
 export default function CommentThread({
   postId,
   onAdded,
@@ -38,12 +37,12 @@ export default function CommentThread({
 
   function addNode(node: CommentNode) {
     if (node.parentId === null) {
-      setComments((prev) => [node, ...prev]); // new top-level, newest first
+      setComments((prev) => [node, ...prev]);
     } else {
       setComments((prev) =>
         prev.map((c) =>
           c.id === node.parentId
-            ? { ...c, replies: [...c.replies, node] } // reply, chronological
+            ? { ...c, replies: [...c.replies, node] }
             : c,
         ),
       );
@@ -75,34 +74,29 @@ export default function CommentThread({
   }
 
   return (
-    <div style={{ marginTop: 12, borderTop: "1px solid #eee", paddingTop: 12 }}>
-      <Composer placeholder="Write a comment…" onSubmit={(b) => create(b)} />
+    <>
+      <Composer onSubmit={(b) => create(b)} />
 
-      {loading ? (
-        <p style={{ color: "#888", fontSize: 13 }}>Loading comments…</p>
-      ) : comments.length === 0 ? (
-        <p style={{ color: "#888", fontSize: 13 }}>No comments yet.</p>
-      ) : (
-        comments.map((c) => (
-          <CommentItem
-            key={c.id}
-            comment={c}
-            onReply={(body) => create(body, c.id)}
-          />
-        ))
-      )}
+      <div className="_timline_comment_main">
+        {loading ? (
+          <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>Loading comments…</p>
+        ) : comments.length === 0 ? (
+          <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>No comments yet.</p>
+        ) : (
+          comments.map((c) => (
+            <CommentItem key={c.id} comment={c} onReply={(body) => create(body, c.id)} />
+          ))
+        )}
 
-      {cursor && (
-        <button
-          type="button"
-          onClick={loadMore}
-          disabled={loadingMore}
-          style={linkBtn}
-        >
-          {loadingMore ? "Loading…" : "Load more comments"}
-        </button>
-      )}
-    </div>
+        {cursor && (
+          <div className="_previous_comment">
+            <button type="button" className="_previous_comment_txt" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? "Loading…" : "View previous comments"}
+            </button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -116,22 +110,28 @@ function CommentItem({
   const [replying, setReplying] = useState(false);
 
   return (
-    <div style={{ marginBottom: 12 }}>
-      <CommentBody node={comment} />
-      <div style={{ display: "flex", gap: 12, fontSize: 13, marginTop: 4 }}>
-        <LikeControl
-          likeEndpoint={`/api/comments/${comment.id}/like`}
-          likesEndpoint={`/api/comments/${comment.id}/likes`}
-          initialCount={comment.likeCount}
-          initialLiked={comment.likedByMe}
-        />
-        <button type="button" onClick={() => setReplying((s) => !s)} style={linkBtn}>
-          Reply
-        </button>
+    <div className="_comment_main">
+      <div className="_comment_image">
+        <img src={AVATAR} alt="" className="_comment_img1" />
       </div>
+      <div className="_comment_area" style={{ flex: 1 }}>
+        <div className="_comment_details">
+          <div className="_comment_details_top">
+            <div className="_comment_name">
+              <h4 className="_comment_name_title">
+                {comment.author.firstName} {comment.author.lastName}
+              </h4>
+            </div>
+          </div>
+          <div className="_comment_status">
+            <p className="_comment_status_text">
+              <span style={{ whiteSpace: "pre-wrap" }}>{comment.body}</span>
+            </p>
+          </div>
+          <CommentActions node={comment} onReplyClick={() => setReplying((s) => !s)} />
+        </div>
 
-      {replying && (
-        <div style={{ marginTop: 6 }}>
+        {replying && (
           <Composer
             placeholder={`Reply to ${comment.author.firstName}…`}
             onSubmit={async (b) => {
@@ -139,81 +139,113 @@ function CommentItem({
               setReplying(false);
             }}
           />
-        </div>
-      )}
+        )}
 
-      {comment.replies.length > 0 && (
-        <div style={{ marginLeft: 20, marginTop: 8, borderLeft: "2px solid #eee", paddingLeft: 12 }}>
-          {comment.replies.map((r) => (
-            <div key={r.id} style={{ marginBottom: 10 }}>
-              <CommentBody node={r} />
-              <div style={{ display: "flex", gap: 12, fontSize: 13, marginTop: 4 }}>
-                <LikeControl
-                  likeEndpoint={`/api/comments/${r.id}/like`}
-                  likesEndpoint={`/api/comments/${r.id}/likes`}
-                  initialCount={r.likeCount}
-                  initialLiked={r.likedByMe}
-                />
-                {/* Replying to a reply re-parents to this top-level comment (2A). */}
-                <ReplyToReply authorName={r.author.firstName} onReply={onReply} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {comment.replies.map((r) => (
+          <ReplyItem key={r.id} reply={r} onReply={onReply} />
+        ))}
+      </div>
     </div>
   );
 }
 
-function ReplyToReply({
-  authorName,
+function ReplyItem({
+  reply,
   onReply,
 }: {
-  authorName: string;
+  reply: CommentNode;
   onReply: (body: string) => Promise<void>;
 }) {
   const [replying, setReplying] = useState(false);
+
   return (
-    <>
-      <button type="button" onClick={() => setReplying((s) => !s)} style={linkBtn}>
-        Reply
-      </button>
-      {replying && (
-        <div style={{ marginTop: 6, width: "100%" }}>
+    <div className="_comment_main" style={{ marginTop: 10 }}>
+      <div className="_comment_image">
+        <img src={AVATAR} alt="" className="_comment_img1" />
+      </div>
+      <div className="_comment_area" style={{ flex: 1 }}>
+        <div className="_comment_details">
+          <div className="_comment_details_top">
+            <div className="_comment_name">
+              <h4 className="_comment_name_title">
+                {reply.author.firstName} {reply.author.lastName}
+              </h4>
+            </div>
+          </div>
+          <div className="_comment_status">
+            <p className="_comment_status_text">
+              <span style={{ whiteSpace: "pre-wrap" }}>{reply.body}</span>
+            </p>
+          </div>
+          <CommentActions node={reply} onReplyClick={() => setReplying((s) => !s)} />
+        </div>
+
+        {replying && (
           <Composer
-            placeholder={`Reply to ${authorName}…`}
+            placeholder={`Reply to ${reply.author.firstName}…`}
             onSubmit={async (b) => {
               await onReply(b);
               setReplying(false);
             }}
           />
-        </div>
-      )}
-    </>
+        )}
+      </div>
+    </div>
   );
 }
 
-function CommentBody({ node }: { node: CommentNode }) {
-  const author = `${node.author.firstName} ${node.author.lastName}`;
+function CommentActions({
+  node,
+  onReplyClick,
+}: {
+  node: CommentNode;
+  onReplyClick: () => void;
+}) {
+  const { count, liked, toggle } = useLike(
+    `/api/comments/${node.id}/like`,
+    node.likeCount,
+    node.likedByMe,
+  );
+  const [showLikers, setShowLikers] = useState(false);
+  const when = new Date(node.createdAt).toLocaleDateString();
+
   return (
-    <div>
-      <span style={{ fontWeight: 600, fontSize: 14 }}>{author}</span>{" "}
-      <span style={{ color: "#999", fontSize: 12 }}>
-        {new Date(node.createdAt).toLocaleString()}
-      </span>
-      <p style={{ margin: "2px 0 0", whiteSpace: "pre-wrap", fontSize: 14 }}>
-        {node.body}
-      </p>
+    <div className="_comment_reply">
+      <div className="_comment_reply_num">
+        <ul className="_comment_reply_list">
+          <li>
+            <button type="button" onClick={toggle} style={replyLink(liked)}>
+              {liked ? "Liked" : "Like"}
+            </button>
+          </li>
+          {count > 0 && (
+            <li>
+              <button type="button" onClick={() => setShowLikers((s) => !s)} style={replyLink(false)}>
+                {count}
+              </button>
+            </li>
+          )}
+          <li>
+            <button type="button" onClick={onReplyClick} style={replyLink(false)}>
+              Reply
+            </button>
+          </li>
+          <li>
+            <span className="_time_link">.{when}</span>
+          </li>
+        </ul>
+      </div>
+      {showLikers && <WhoLiked endpoint={`/api/comments/${node.id}/likes`} />}
     </div>
   );
 }
 
 function Composer({
-  placeholder,
   onSubmit,
+  placeholder = "Write a comment",
 }: {
-  placeholder: string;
   onSubmit: (body: string) => Promise<void>;
+  placeholder?: string;
 }) {
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -227,39 +259,52 @@ function Composer({
       await onSubmit(trimmed);
       setBody("");
     } catch {
-      // keep the text so the user can retry
+      // keep text for retry
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-      <input
-        className="form-control"
-        placeholder={placeholder}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        maxLength={2000}
-        style={{ flex: 1 }}
-      />
-      <button
-        type="submit"
-        className="_btn1"
-        style={{ padding: "6px 16px" }}
-        disabled={busy || !body.trim()}
-      >
-        {busy ? "…" : "Send"}
-      </button>
-    </form>
+    <div className="_feed_inner_comment_box">
+      <form className="_feed_inner_comment_box_form" onSubmit={submit}>
+        <div className="_feed_inner_comment_box_content">
+          <div className="_feed_inner_comment_box_content_image">
+            <img src={AVATAR} alt="" className="_comment_img" />
+          </div>
+          <div className="_feed_inner_comment_box_content_txt" style={{ flex: 1 }}>
+            <input
+              className="form-control _comment_textarea"
+              placeholder={placeholder}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              maxLength={2000}
+              style={{ width: "100%" }}
+            />
+          </div>
+        </div>
+        <div className="_feed_inner_comment_box_icon">
+          <button
+            type="submit"
+            className="_feed_inner_comment_box_icon_btn"
+            disabled={busy || !body.trim()}
+            style={{ color: "#3b5bdb", fontWeight: 600, padding: "0 8px" }}
+          >
+            {busy ? "…" : "Send"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
-const linkBtn: React.CSSProperties = {
-  border: "none",
-  background: "none",
-  cursor: "pointer",
-  color: "#3b5bdb",
-  padding: 0,
-  fontSize: 13,
-};
+function replyLink(active: boolean): React.CSSProperties {
+  return {
+    border: "none",
+    background: "none",
+    cursor: "pointer",
+    color: active ? "#e5484d" : "#666",
+    padding: 0,
+    font: "inherit",
+  };
+}

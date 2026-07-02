@@ -4,16 +4,11 @@
 import { useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { FeedPost, FeedResponse, Visibility } from "@/lib/types";
-import { LikeControl } from "./like-control";
+import { useLike } from "./use-like";
+import { WhoLiked } from "./who-liked";
 import CommentThread from "./comment-thread";
 
-const card: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #e6e6e6",
-  borderRadius: 10,
-  padding: 16,
-  marginBottom: 16,
-};
+const AVATAR = "/assets/images/post_img.png";
 
 export default function FeedClient({ initial }: { initial: FeedResponse }) {
   const [posts, setPosts] = useState<FeedPost[]>(initial.posts);
@@ -36,19 +31,23 @@ export default function FeedClient({ initial }: { initial: FeedResponse }) {
       <CreatePostForm onCreated={(p) => setPosts((prev) => [p, ...prev])} />
 
       {posts.length === 0 ? (
-        <p style={{ color: "#888", textAlign: "center", padding: "40px 0" }}>
-          No posts yet. Be the first to post something.
-        </p>
+        <div className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16">
+          <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
+            <p style={{ color: "#888", textAlign: "center" }}>
+              No posts yet. Be the first to post something.
+            </p>
+          </div>
+        </div>
       ) : (
         posts.map((post) => <PostCard key={post.id} post={post} />)
       )}
 
       {cursor && (
-        <div style={{ textAlign: "center", marginTop: 8 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
           <button
             type="button"
-            className="_btn1"
-            style={{ padding: "8px 24px" }}
+            className="_feed_inner_text_area_btn_link"
+            style={{ padding: "10px 28px" }}
             onClick={loadMore}
             disabled={loadingMore}
           >
@@ -67,15 +66,13 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     if (!text.trim() || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       let imageUrl: string | undefined;
       if (file) {
-        // Direct browser -> Vercel Blob upload via a signed token from /api/upload.
         const blob = await upload(file.name, file, {
           access: "public",
           handleUploadUrl: "/api/upload",
@@ -89,8 +86,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
         body: JSON.stringify(imageUrl ? { text, visibility, imageUrl } : { text, visibility }),
       });
       if (!res.ok) throw new Error("post failed");
-      const post: FeedPost = await res.json();
-      onCreated(post);
+      onCreated((await res.json()) as FeedPost);
       setText("");
       setVisibility("PUBLIC");
       setFile(null);
@@ -102,19 +98,26 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
   }
 
   return (
-    <form onSubmit={submit} style={card}>
-      <textarea
-        className="form-control"
-        placeholder="What's on your mind?"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={3}
-        maxLength={5000}
-        style={{ resize: "vertical", width: "100%" }}
-      />
+    <div className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16">
+      <div className="_feed_inner_text_area_box">
+        <div className="_feed_inner_text_area_box_image">
+          <img src="/assets/images/txt_img.png" alt="" className="_txt_img" />
+        </div>
+        <div className="_feed_inner_text_area_box_form" style={{ flex: 1 }}>
+          <textarea
+            className="form-control _textarea"
+            placeholder="Write something ..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={2}
+            maxLength={5000}
+            style={{ width: "100%", resize: "vertical" }}
+          />
+        </div>
+      </div>
 
       {file && (
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
           <img
             src={URL.createObjectURL(file)}
             alt="preview"
@@ -123,11 +126,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
           <span style={{ fontSize: 13, color: "#555", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
             {file.name}
           </span>
-          <button
-            type="button"
-            onClick={() => setFile(null)}
-            style={{ border: "none", background: "none", color: "#e5484d", cursor: "pointer" }}
-          >
+          <button type="button" onClick={() => setFile(null)} style={{ border: "none", background: "none", color: "#e5484d", cursor: "pointer" }}>
             Remove
           </button>
         </div>
@@ -139,47 +138,43 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
         </p>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: 12,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <label style={{ color: "#555", fontSize: 14, cursor: "pointer" }}>
-            📷 Image
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              style={{ display: "none" }}
-            />
-          </label>
-          <label style={{ color: "#555", fontSize: 14 }}>
+      <div className="_feed_inner_text_area_bottom" style={{ marginTop: 16 }}>
+        <div className="_feed_inner_text_area_item">
+          <div className="_feed_inner_text_area_bottom_photo _feed_common">
+            <label className="_feed_inner_text_area_bottom_photo_link" style={{ cursor: "pointer" }}>
+              <span className="_feed_inner_text_area_bottom_photo_iamge _mar_img" aria-hidden>📷</span>
+              Photo
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
+          <div className="_feed_inner_text_area_bottom_video _feed_common">
             <select
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as Visibility)}
-              style={{ padding: "4px 8px" }}
+              style={{ padding: "4px 8px", border: "1px solid #e2e2e2", borderRadius: 6, color: "#666" }}
             >
-              <option value="PUBLIC">Public</option>
-              <option value="PRIVATE">Private (only me)</option>
+              <option value="PUBLIC">🌐 Public</option>
+              <option value="PRIVATE">🔒 Private</option>
             </select>
-          </label>
+          </div>
         </div>
-        <button
-          type="submit"
-          className="_btn1"
-          style={{ padding: "8px 24px" }}
-          disabled={submitting || !text.trim()}
-        >
-          {submitting ? "Posting..." : "Post"}
-        </button>
+        <div className="_feed_inner_text_area_btn">
+          <button
+            type="button"
+            className="_feed_inner_text_area_btn_link"
+            onClick={submit}
+            disabled={submitting || !text.trim()}
+          >
+            <span>{submitting ? "Posting..." : "Post"}</span>
+          </button>
+        </div>
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -188,92 +183,105 @@ function PostCard({ post }: { post: FeedPost }) {
   const when = new Date(post.createdAt).toLocaleString();
 
   return (
-    <article style={card}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: 8,
-        }}
-      >
-        <strong>{author}</strong>
-        <span style={{ color: "#999", fontSize: 12 }}>
-          {post.visibility === "PRIVATE" && (
-            <span
-              style={{
-                marginRight: 8,
-                padding: "1px 8px",
-                borderRadius: 10,
-                background: "#f0f0f0",
-                color: "#666",
-              }}
-            >
-              Private
-            </span>
-          )}
-          {when}
-        </span>
-      </header>
+    <div className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16">
+      <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
+        <div className="_feed_inner_timeline_post_top">
+          <div className="_feed_inner_timeline_post_box">
+            <div className="_feed_inner_timeline_post_box_image">
+              <img src={AVATAR} alt="" className="_post_img" />
+            </div>
+            <div className="_feed_inner_timeline_post_box_txt">
+              <h4 className="_feed_inner_timeline_post_box_title">{author}</h4>
+              <p className="_feed_inner_timeline_post_box_para">
+                {when} . <a href="#0">{post.visibility === "PRIVATE" ? "Private" : "Public"}</a>
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{post.text}</p>
+        <p
+          className="_feed_inner_timeline_post_title"
+          style={{ whiteSpace: "pre-wrap", fontWeight: 400 }}
+        >
+          {post.text}
+        </p>
 
-      {post.imageUrl && (
-        <img
-          src={post.imageUrl}
-          alt=""
-          style={{ maxWidth: "100%", borderRadius: 8, marginTop: 12 }}
-        />
-      )}
+        {post.imageUrl && (
+          <div className="_feed_inner_timeline_image">
+            <img src={post.imageUrl} alt="" className="_time_img" style={{ maxWidth: "100%" }} />
+          </div>
+        )}
+      </div>
 
       <PostActions post={post} />
-    </article>
+    </div>
   );
 }
 
 function PostActions({ post }: { post: FeedPost }) {
+  const { count: likeCount, liked, toggle } = useLike(
+    `/api/posts/${post.id}/like`,
+    post.likeCount,
+    post.likedByMe,
+  );
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const [showComments, setShowComments] = useState(false);
+  const [showLikers, setShowLikers] = useState(false);
 
   return (
     <>
-      <footer
-        style={{
-          marginTop: 12,
-          color: "#666",
-          fontSize: 14,
-          display: "flex",
-          gap: 16,
-          alignItems: "center",
-        }}
-      >
-        <LikeControl
-          likeEndpoint={`/api/posts/${post.id}/like`}
-          likesEndpoint={`/api/posts/${post.id}/likes`}
-          initialCount={post.likeCount}
-          initialLiked={post.likedByMe}
-        />
+      <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
+        <div className="_feed_inner_timeline_total_reacts_image">
+          <button
+            type="button"
+            onClick={() => setShowLikers((s) => !s)}
+            disabled={likeCount === 0}
+            style={{ border: "none", background: "none", cursor: likeCount === 0 ? "default" : "pointer", color: "#666", padding: 0 }}
+          >
+            {likeCount} {likeCount === 1 ? "like" : "likes"}
+          </button>
+        </div>
+        <div className="_feed_inner_timeline_total_reacts_txt">
+          <p className="_feed_inner_timeline_total_reacts_para1">
+            <a href="#0" onClick={(e) => { e.preventDefault(); setShowComments((s) => !s); }}>
+              <span>{commentCount}</span> {commentCount === 1 ? "Comment" : "Comments"}
+            </a>
+          </p>
+        </div>
+      </div>
+
+      {showLikers && (
+        <div className="_padd_r24 _padd_l24">
+          <WhoLiked endpoint={`/api/posts/${post.id}/likes`} />
+        </div>
+      )}
+
+      <div className="_feed_inner_timeline_reaction">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={liked}
+          className={`_feed_inner_timeline_reaction_emoji _feed_reaction ${liked ? "_feed_reaction_active" : ""}`}
+        >
+          <span className="_feed_inner_timeline_reaction_link">
+            <span style={{ color: liked ? "#e5484d" : undefined }}>{liked ? "♥" : "♡"} Like</span>
+          </span>
+        </button>
         <button
           type="button"
           onClick={() => setShowComments((s) => !s)}
-          style={{
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            color: "#666",
-            padding: 0,
-            fontSize: 14,
-          }}
+          className="_feed_inner_timeline_reaction_comment _feed_reaction"
         >
-          {commentCount} {commentCount === 1 ? "comment" : "comments"}
+          <span className="_feed_inner_timeline_reaction_link">
+            <span>Comment</span>
+          </span>
         </button>
-      </footer>
+      </div>
 
       {showComments && (
-        <CommentThread
-          postId={post.id}
-          onAdded={() => setCommentCount((c) => c + 1)}
-        />
+        <div className="_feed_inner_timeline_cooment_area">
+          <CommentThread postId={post.id} onAdded={() => setCommentCount((c) => c + 1)} />
+        </div>
       )}
     </>
   );
