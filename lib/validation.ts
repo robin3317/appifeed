@@ -19,6 +19,14 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export const createPostSchema = z.object({
+  text: z.string().trim().min(1, "Post text is required").max(5000),
+  visibility: z.enum(["PUBLIC", "PRIVATE"]).default("PUBLIC"),
+  // Set by the (later) direct-to-storage upload; the API validates it is a URL.
+  imageUrl: z.url().max(2000).optional(),
+});
+export type CreatePostInput = z.infer<typeof createPostSchema>;
+
 type ParseResult<T> =
   | { ok: true; data: T }
   | { ok: false; response: Response };
