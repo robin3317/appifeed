@@ -34,3 +34,19 @@ export type LikersResponse = {
   users: FeedAuthor[];
   nextCursor: string | null;
 };
+
+export type CommentNode = {
+  id: string;
+  body: string;
+  createdAt: string; // ISO
+  author: FeedAuthor;
+  likeCount: number;
+  likedByMe: boolean;
+  parentId: string | null;
+  replies: CommentNode[]; // only populated on top-level comments (2 levels)
+};
+
+export type CommentsResponse = {
+  comments: CommentNode[];
+  nextCursor: string | null;
+};

@@ -27,6 +27,13 @@ export const createPostSchema = z.object({
 });
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 
+export const createCommentSchema = z.object({
+  body: z.string().trim().min(1, "Comment cannot be empty").max(2000),
+  // When present, this is a reply. The API enforces the 2-level cap.
+  parentId: z.string().min(1).optional(),
+});
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+
 type ParseResult<T> =
   | { ok: true; data: T }
   | { ok: false; response: Response };
