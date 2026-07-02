@@ -1,9 +1,14 @@
-/* eslint-disable @next/next/no-img-element */
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { getFeedPage } from "@/lib/feed";
-import LogoutButton from "./logout-button";
 import FeedClient from "./feed-client";
+import LogoutButton from "./logout-button";
+import {
+  NAV_HTML,
+  LEFT_SIDEBAR_HTML,
+  STORIES_HTML,
+  RIGHT_SIDEBAR_HTML,
+} from "./shell-html";
 
 // Per-user feed — always rendered on demand, never statically cached.
 export const dynamic = "force-dynamic";
@@ -14,34 +19,43 @@ export default async function FeedPage() {
 
   const initial = await getFeedPage(user.id);
 
-  return (
-    <div
-      className="_layout _layout_main_wrapper"
-      style={{ minHeight: "100vh", background: "#f4f5f7" }}
-    >
-      <header
-        style={{
-          background: "#fff",
-          borderBottom: "1px solid #ececec",
-          padding: "12px 32px",
-          marginBottom: 24,
-          position: "sticky",
-          top: 0,
-          zIndex: 10,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <img src="/assets/images/logo.svg" alt="Buddy Script" style={{ height: 32 }} />
-        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          <span style={{ color: "#555", fontWeight: 500 }}>{user.name}</span>
-          <LogoutButton />
-        </div>
-      </header>
+  // Show the logged-in user's name in the (static) Buddy Script nav profile.
+  const navHtml = NAV_HTML.replaceAll("Dylan Field", user.name ?? "User");
 
-      <div style={{ maxWidth: 600, margin: "0 auto", padding: "0 16px 48px" }}>
-        <FeedClient initial={initial} />
+  return (
+    <div className="_layout _layout_main_wrapper">
+      {/* Functional logout — the static nav dropdown has no JS to open it. */}
+      <div style={{ position: "fixed", top: 22, right: 20, zIndex: 3000 }}>
+        <LogoutButton />
+      </div>
+
+      {/* Static chrome ported verbatim from the provided design. */}
+      <div dangerouslySetInnerHTML={{ __html: navHtml }} />
+
+      <div className="container _custom_container">
+        <div className="_layout_inner_wrap">
+          <div className="row">
+            <div
+              className="col-xl-3 col-lg-3 col-md-12 col-sm-12"
+              dangerouslySetInnerHTML={{ __html: LEFT_SIDEBAR_HTML }}
+            />
+
+            <div className="col-xl-6 col-lg-6 col-md-12 col-sm-12">
+              <div className="_layout_middle_wrap">
+                <div className="_layout_middle_inner">
+                  <div dangerouslySetInnerHTML={{ __html: STORIES_HTML }} />
+                  {/* Functional feed (create post, posts, likes, comments). */}
+                  <FeedClient initial={initial} />
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="col-xl-3 col-lg-3 col-md-12 col-sm-12"
+              dangerouslySetInnerHTML={{ __html: RIGHT_SIDEBAR_HTML }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

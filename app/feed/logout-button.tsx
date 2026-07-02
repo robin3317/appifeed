@@ -7,7 +7,7 @@ export default function LogoutButton() {
     <button
       type="button"
       className="_btn1"
-      style={{ padding: "8px 20px" }}
+      style={{ padding: "6px 14px", fontSize: 13 }}
       onClick={() => signOut({ callbackUrl: "/login" })}
     >
       Log out
