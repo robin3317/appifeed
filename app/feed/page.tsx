@@ -23,33 +23,25 @@ export default async function FeedPage() {
         style={{
           background: "#fff",
           borderBottom: "1px solid #ececec",
-          padding: "12px 0",
+          padding: "12px 32px",
           marginBottom: 24,
           position: "sticky",
           top: 0,
           zIndex: 10,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        <div
-          className="container _custom_container"
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-        >
-          <img src="/assets/images/logo.svg" alt="Buddy Script" style={{ height: 32 }} />
-          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <span style={{ color: "#555", fontWeight: 500 }}>{user.name}</span>
-            <LogoutButton />
-          </div>
+        <img src="/assets/images/logo.svg" alt="Buddy Script" style={{ height: 32 }} />
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <span style={{ color: "#555", fontWeight: 500 }}>{user.name}</span>
+          <LogoutButton />
         </div>
       </header>
 
-      <div className="container _custom_container">
-        <div className="_layout_inner_wrap">
-          <div className="row justify-content-center">
-            <div className="col-xl-7 col-lg-9 col-md-12 col-sm-12">
-              <FeedClient initial={initial} />
-            </div>
-          </div>
-        </div>
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: "0 16px 48px" }}>
+        <FeedClient initial={initial} />
       </div>
     </div>
   );
