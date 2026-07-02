@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendor + generated code — not ours to lint.
+    "public/**",
+    "lib/generated/**",
   ]),
 ]);
 

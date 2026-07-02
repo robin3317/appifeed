@@ -1,0 +1,97 @@
+// Appifeed — social feed data model.
+// Approach A (normalized relational): self-referencing comments for 2-level
+// replies, per-entity like tables with unique constraints, denormalized
+// counters, and indexes tuned for cursor (keyset) feed pagination.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  posts        Post[]
+  comments     Comment[]
+  postLikes    PostLike[]
+  commentLikes CommentLike[]
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+model Post {
+  id           String     @id @default(cuid())
+  author       User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId     String
+  text         String
+  imageUrl     String?
+  visibility   Visibility @default(PUBLIC)
+  likeCount    Int        @default(0) // denormalized; kept in sync inside a tx
+  commentCount Int        @default(0) // denormalized
+  createdAt    DateTime   @default(now())
+
+  comments Comment[]
+  likes    PostLike[]
+
+  // Keyset pagination: ORDER BY (createdAt DESC, id DESC)
+  @@index([createdAt, id])
+  @@index([authorId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  // Self-reference: a reply is a comment whose parentId points at a top-level
+  // comment. Depth is capped at 2 in the API (a reply-to-a-reply re-parents to
+  // the top-level comment and @mentions the target).
+  parent    Comment?  @relation("Thread", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId  String?
+  replies   Comment[] @relation("Thread")
+  body      String
+  likeCount Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  likes CommentLike[]
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId]) // a user can like a post at most once
+  @@index([postId])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+}
