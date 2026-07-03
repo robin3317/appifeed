@@ -232,6 +232,34 @@ function PostCard({ post }: { post: FeedPost }) {
   );
 }
 
+// Stacked reaction avatars: up to 5 images; if there are more than 5 likes,
+// show 5 images plus a "+N" for the remainder (e.g. 10 likes -> 5 images + "+5").
+function ReactionImages({ count, onClick }: { count: number; onClick: () => void }) {
+  const shown = Math.min(count, 5);
+  const remaining = count - 5;
+  return (
+    <div
+      className="_feed_inner_timeline_total_reacts_image"
+      style={{ cursor: "pointer" }}
+      onClick={onClick}
+    >
+      {Array.from({ length: shown }, (_, i) => i + 1).map((n) => (
+        <img
+          key={n}
+          src={`/assets/images/react_img${n}.png`}
+          alt=""
+          className={
+            n === 1 ? "_react_img1" : n >= 3 ? "_react_img _rect_img_mbl_none" : "_react_img"
+          }
+        />
+      ))}
+      {remaining > 0 && (
+        <p className="_feed_inner_timeline_total_reacts_para">+{remaining}</p>
+      )}
+    </div>
+  );
+}
+
 function PostActions({ post }: { post: FeedPost }) {
   const { count: likeCount, liked, toggle } = useLike(
     `/api/posts/${post.id}/like`,
@@ -246,13 +274,7 @@ function PostActions({ post }: { post: FeedPost }) {
     <>
       <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
         {likeCount > 0 ? (
-          <div
-            className="_feed_inner_timeline_total_reacts_image"
-            style={{ cursor: "pointer" }}
-            onClick={() => setShowLikers((s) => !s)}
-          >
-            <span dangerouslySetInnerHTML={html(I.REACT_IMAGES)} />
-          </div>
+          <ReactionImages count={likeCount} onClick={() => setShowLikers((s) => !s)} />
         ) : (
           <div />
         )}
