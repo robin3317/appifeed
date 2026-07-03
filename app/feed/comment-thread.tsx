@@ -5,8 +5,10 @@ import { useState, useEffect } from "react";
 import type { CommentNode, CommentsResponse } from "@/lib/types";
 import { useLike } from "./use-like";
 import { WhoLiked } from "./who-liked";
+import * as I from "./icons";
 
 const AVATAR = "/assets/images/comment_img.png";
+const html = (s: string) => ({ __html: s });
 
 export default function CommentThread({
   postId,
@@ -41,9 +43,7 @@ export default function CommentThread({
     } else {
       setComments((prev) =>
         prev.map((c) =>
-          c.id === node.parentId
-            ? { ...c, replies: [...c.replies, node] }
-            : c,
+          c.id === node.parentId ? { ...c, replies: [...c.replies, node] } : c,
         ),
       );
     }
@@ -63,9 +63,7 @@ export default function CommentThread({
   async function loadMore() {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
-    const res = await fetch(
-      `/api/posts/${postId}/comments?cursor=${encodeURIComponent(cursor)}`,
-    );
+    const res = await fetch(`/api/posts/${postId}/comments?cursor=${encodeURIComponent(cursor)}`);
     setLoadingMore(false);
     if (!res.ok) return;
     const d: CommentsResponse = await res.json();
@@ -78,22 +76,22 @@ export default function CommentThread({
       <Composer onSubmit={(b) => create(b)} />
 
       <div className="_timline_comment_main">
-        {loading ? (
-          <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>Loading comments…</p>
-        ) : comments.length === 0 ? (
-          <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>No comments yet.</p>
-        ) : (
-          comments.map((c) => (
-            <CommentItem key={c.id} comment={c} onReply={(body) => create(body, c.id)} />
-          ))
-        )}
-
         {cursor && (
           <div className="_previous_comment">
             <button type="button" className="_previous_comment_txt" onClick={loadMore} disabled={loadingMore}>
               {loadingMore ? "Loading…" : "View previous comments"}
             </button>
           </div>
+        )}
+
+        {loading ? (
+          <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>Loading comments…</p>
+        ) : comments.length === 0 ? (
+          <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>No comments yet.</p>
+        ) : (
+          comments.map((c) => (
+            <CommentItem key={c.id} comment={c} onReply={(b) => create(b, c.id)} />
+          ))
         )}
       </div>
     </>
@@ -214,19 +212,19 @@ function CommentActions({
       <div className="_comment_reply_num">
         <ul className="_comment_reply_list">
           <li>
-            <button type="button" onClick={toggle} style={replyLink(liked)}>
+            <button type="button" onClick={toggle} style={link(liked)}>
               {liked ? "Liked" : "Like"}
             </button>
           </li>
           {count > 0 && (
             <li>
-              <button type="button" onClick={() => setShowLikers((s) => !s)} style={replyLink(false)}>
+              <button type="button" onClick={() => setShowLikers((s) => !s)} style={link(false)}>
                 {count}
               </button>
             </li>
           )}
           <li>
-            <button type="button" onClick={onReplyClick} style={replyLink(false)}>
+            <button type="button" onClick={onReplyClick} style={link(false)}>
               Reply
             </button>
           </li>
@@ -284,11 +282,13 @@ function Composer({
           </div>
         </div>
         <div className="_feed_inner_comment_box_icon">
+          <button type="button" className="_feed_inner_comment_box_icon_btn" dangerouslySetInnerHTML={html(I.ICON_MIC)} />
+          <button type="button" className="_feed_inner_comment_box_icon_btn" dangerouslySetInnerHTML={html(I.ICON_CIMG)} />
           <button
             type="submit"
             className="_feed_inner_comment_box_icon_btn"
             disabled={busy || !body.trim()}
-            style={{ color: "#3b5bdb", fontWeight: 600, padding: "0 8px" }}
+            style={{ color: "#3b5bdb", fontWeight: 600, width: "auto", padding: "0 6px" }}
           >
             {busy ? "…" : "Send"}
           </button>
@@ -298,7 +298,7 @@ function Composer({
   );
 }
 
-function replyLink(active: boolean): React.CSSProperties {
+function link(active: boolean): React.CSSProperties {
   return {
     border: "none",
     background: "none",

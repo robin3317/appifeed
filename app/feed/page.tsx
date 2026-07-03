@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/session";
 import { getFeedPage } from "@/lib/feed";
 import FeedClient from "./feed-client";
 import LogoutButton from "./logout-button";
+import ChromeInteractions from "./chrome-interactions";
 import {
   NAV_HTML,
   LEFT_SIDEBAR_HTML,
@@ -24,6 +25,7 @@ export default async function FeedPage() {
 
   return (
     <div className="_layout _layout_main_wrapper">
+      <ChromeInteractions />
       {/* Functional logout — the static nav dropdown has no JS to open it. */}
       <div style={{ position: "fixed", top: 22, right: 20, zIndex: 3000 }}>
         <LogoutButton />
