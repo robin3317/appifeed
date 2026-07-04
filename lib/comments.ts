@@ -40,19 +40,22 @@ export async function getCommentsPage(
   userId: string,
   cursor?: string | null,
 ): Promise<CommentsResponse> {
-  const rows = await prisma.comment.findMany({
-    where: { postId, parentId: null },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: COMMENTS_PAGE_SIZE + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    include: {
-      author: authorSelect,
-      replies: {
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        include: { author: authorSelect },
+  const [rows, total] = await Promise.all([
+    prisma.comment.findMany({
+      where: { postId, parentId: null },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: COMMENTS_PAGE_SIZE + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: {
+        author: authorSelect,
+        replies: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          include: { author: authorSelect },
+        },
       },
-    },
-  });
+    }),
+    prisma.comment.count({ where: { postId, parentId: null } }),
+  ]);
 
   const hasMore = rows.length > COMMENTS_PAGE_SIZE;
   const page = hasMore ? rows.slice(0, COMMENTS_PAGE_SIZE) : rows;
@@ -83,7 +86,7 @@ export async function getCommentsPage(
     ),
   );
 
-  return { comments, nextCursor };
+  return { comments, nextCursor, total };
 }
 
 export type CreateCommentResult =

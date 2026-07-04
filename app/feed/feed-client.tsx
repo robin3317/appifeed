@@ -4,32 +4,58 @@
 import { useState, useEffect, useRef } from "react";
 import { upload } from "@vercel/blob/client";
 import type { FeedPost, FeedResponse, Visibility } from "@/lib/types";
+import { avatarFor } from "@/lib/avatar";
 import { useLike } from "./use-like";
 import { WhoLiked } from "./who-liked";
 import CommentThread from "./comment-thread";
+import { CurrentUserContext, useCurrentUserId } from "./current-user";
 import * as I from "./icons";
 
-const AVATAR = "/assets/images/post_img.png";
 const html = (s: string) => ({ __html: s });
 
-export default function FeedClient({ initial }: { initial: FeedResponse }) {
+export default function FeedClient({
+  initial,
+  currentUserId,
+}: {
+  initial: FeedResponse;
+  currentUserId: string;
+}) {
   const [posts, setPosts] = useState<FeedPost[]>(initial.posts);
   const [cursor, setCursor] = useState<string | null>(initial.nextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
 
-  async function loadMore() {
-    if (!cursor || loadingMore) return;
-    setLoadingMore(true);
-    const res = await fetch(`/api/posts?cursor=${encodeURIComponent(cursor)}`);
-    setLoadingMore(false);
-    if (!res.ok) return;
-    const data: FeedResponse = await res.json();
-    setPosts((prev) => [...prev, ...data.posts]);
-    setCursor(data.nextCursor);
-  }
+  // Infinite scroll: load the next page when the sentinel enters the viewport.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !cursor) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting || loadingRef.current || !cursor) return;
+        loadingRef.current = true;
+        setLoadingMore(true);
+        fetch(`/api/posts?cursor=${encodeURIComponent(cursor)}`)
+          .then((r) => (r.ok ? r.json() : Promise.reject()))
+          .then((data: FeedResponse) => {
+            setPosts((prev) => [...prev, ...data.posts]);
+            setCursor(data.nextCursor);
+          })
+          .catch(() => {})
+          .finally(() => {
+            loadingRef.current = false;
+            setLoadingMore(false);
+          });
+      },
+      { rootMargin: "400px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [cursor]);
 
   return (
-    <div>
+    <CurrentUserContext.Provider value={currentUserId}>
       <CreatePostForm onCreated={(p) => setPosts((prev) => [p, ...prev])} />
 
       {posts.length === 0 ? (
@@ -44,24 +70,18 @@ export default function FeedClient({ initial }: { initial: FeedResponse }) {
         posts.map((post) => <PostCard key={post.id} post={post} />)
       )}
 
+      {/* Infinite-scroll sentinel + loading state (replaces the Load more button). */}
       {cursor && (
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <button
-            type="button"
-            className="_feed_inner_text_area_btn_link"
-            style={{ padding: "10px 28px" }}
-            onClick={loadMore}
-            disabled={loadingMore}
-          >
-            {loadingMore ? "Loading..." : "Load more"}
-          </button>
+        <div ref={sentinelRef} style={{ textAlign: "center", padding: "16px 0 32px", color: "#888" }}>
+          {loadingMore ? "Loading more…" : ""}
         </div>
       )}
-    </div>
+    </CurrentUserContext.Provider>
   );
 }
 
 function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) {
+  const currentUserId = useCurrentUserId();
   const [text, setText] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("PUBLIC");
   const [file, setFile] = useState<File | null>(null);
@@ -103,18 +123,21 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
     <div className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16">
       <div className="_feed_inner_text_area_box">
         <div className="_feed_inner_text_area_box_image">
-          <img src="/assets/images/txt_img.png" alt="" className="_txt_img" />
+          <img src={avatarFor(currentUserId ?? "me")} alt="" className="_txt_img" />
         </div>
-        <div className="_feed_inner_text_area_box_form" style={{ flex: 1 }}>
+        <div className="form-floating _feed_inner_text_area_box_form" style={{ flex: 1 }}>
           <textarea
             className="form-control _textarea"
             placeholder="Write something ..."
+            id="createPostTextarea"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            rows={2}
-            maxLength={5000}
-            style={{ width: "100%", resize: "vertical" }}
+            style={{ width: "100%", resize: "vertical", height: 54 }}
           />
+          <label className="_feed_textarea_label" htmlFor="createPostTextarea">
+            Write something ...{" "}
+            <span style={{ display: "inline-flex" }} dangerouslySetInnerHTML={html(I.ICON_PENCIL)} />
+          </label>
         </div>
       </div>
 
@@ -175,7 +198,6 @@ function PostCard({ post }: { post: FeedPost }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close the 3-dot dropdown on outside click.
   useEffect(() => {
     if (!menuOpen) return;
     const onDoc = (e: MouseEvent) => {
@@ -191,7 +213,7 @@ function PostCard({ post }: { post: FeedPost }) {
         <div className="_feed_inner_timeline_post_top">
           <div className="_feed_inner_timeline_post_box">
             <div className="_feed_inner_timeline_post_box_image">
-              <img src={AVATAR} alt="" className="_post_img" />
+              <img src={avatarFor(post.author.id)} alt="" className="_post_img" />
             </div>
             <div className="_feed_inner_timeline_post_box_txt">
               <h4 className="_feed_inner_timeline_post_box_title">{author}</h4>
@@ -232,30 +254,20 @@ function PostCard({ post }: { post: FeedPost }) {
   );
 }
 
-// Stacked reaction avatars: up to 5 images; if there are more than 5 likes,
-// show 5 images plus a "+N" for the remainder (e.g. 10 likes -> 5 images + "+5").
 function ReactionImages({ count, onClick }: { count: number; onClick: () => void }) {
   const shown = Math.min(count, 5);
   const remaining = count - 5;
   return (
-    <div
-      className="_feed_inner_timeline_total_reacts_image"
-      style={{ cursor: "pointer" }}
-      onClick={onClick}
-    >
+    <div className="_feed_inner_timeline_total_reacts_image" style={{ cursor: "pointer" }} onClick={onClick}>
       {Array.from({ length: shown }, (_, i) => i + 1).map((n) => (
         <img
           key={n}
           src={`/assets/images/react_img${n}.png`}
           alt=""
-          className={
-            n === 1 ? "_react_img1" : n >= 3 ? "_react_img _rect_img_mbl_none" : "_react_img"
-          }
+          className={n === 1 ? "_react_img1" : n >= 3 ? "_react_img _rect_img_mbl_none" : "_react_img"}
         />
       ))}
-      {remaining > 0 && (
-        <p className="_feed_inner_timeline_total_reacts_para">+{remaining}</p>
-      )}
+      {remaining > 0 && <p className="_feed_inner_timeline_total_reacts_para">+{remaining}</p>}
     </div>
   );
 }

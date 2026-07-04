@@ -43,7 +43,7 @@ export default async function FeedPage() {
                 <div className="_layout_middle_inner">
                   <div dangerouslySetInnerHTML={{ __html: STORIES_HTML }} />
                   {/* Functional feed (create post, posts, likes, comments). */}
-                  <FeedClient initial={initial} />
+                  <FeedClient initial={initial} currentUserId={user.id} />
                 </div>
               </div>
             </div>

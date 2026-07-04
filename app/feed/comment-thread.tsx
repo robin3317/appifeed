@@ -3,11 +3,12 @@
 
 import { useState, useEffect } from "react";
 import type { CommentNode, CommentsResponse } from "@/lib/types";
+import { avatarFor } from "@/lib/avatar";
 import { useLike } from "./use-like";
 import { WhoLiked } from "./who-liked";
+import { useCurrentUserId } from "./current-user";
 import * as I from "./icons";
 
-const AVATAR = "/assets/images/comment_img.png";
 const html = (s: string) => ({ __html: s });
 
 export default function CommentThread({
@@ -17,8 +18,13 @@ export default function CommentThread({
   postId: string;
   onAdded: () => void;
 }) {
+  // `comments` is stored newest-first (as the API returns it). We DISPLAY them
+  // oldest-first with the latest at the bottom, and initially reveal only the
+  // latest one behind a "View N previous comments" toggle (reference behavior).
   const [comments, setComments] = useState<CommentNode[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -30,6 +36,7 @@ export default function CommentThread({
         if (!active) return;
         setComments(d.comments);
         setCursor(d.nextCursor);
+        setTotal(d.total);
       })
       .finally(() => active && setLoading(false));
     return () => {
@@ -40,6 +47,7 @@ export default function CommentThread({
   function addNode(node: CommentNode) {
     if (node.parentId === null) {
       setComments((prev) => [node, ...prev]);
+      setTotal((t) => t + 1);
     } else {
       setComments((prev) =>
         prev.map((c) =>
@@ -60,38 +68,52 @@ export default function CommentThread({
     addNode((await res.json()) as CommentNode);
   }
 
-  async function loadMore() {
+  async function loadPrevious() {
+    if (!expanded) {
+      setExpanded(true);
+      return;
+    }
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     const res = await fetch(`/api/posts/${postId}/comments?cursor=${encodeURIComponent(cursor)}`);
     setLoadingMore(false);
     if (!res.ok) return;
     const d: CommentsResponse = await res.json();
-    setComments((prev) => [...prev, ...d.comments]);
+    setComments((prev) => [...prev, ...d.comments]); // older comments appended
     setCursor(d.nextCursor);
+    setTotal(d.total);
   }
+
+  // Chronological order (oldest first, latest last).
+  const chronological = [...comments].reverse();
+  const visible = expanded ? chronological : chronological.slice(-1);
+
+  // How many older comments are still hidden.
+  const hiddenCount = expanded ? total - comments.length : total - 1;
+  const showPreviousBtn = hiddenCount > 0;
 
   return (
     <>
       <Composer onSubmit={(b) => create(b)} />
 
       <div className="_timline_comment_main">
-        {cursor && (
-          <div className="_previous_comment">
-            <button type="button" className="_previous_comment_txt" onClick={loadMore} disabled={loadingMore}>
-              {loadingMore ? "Loading…" : "View previous comments"}
-            </button>
-          </div>
-        )}
-
         {loading ? (
           <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>Loading comments…</p>
         ) : comments.length === 0 ? (
           <p style={{ color: "#888", fontSize: 13, padding: "0 4px" }}>No comments yet.</p>
         ) : (
-          comments.map((c) => (
-            <CommentItem key={c.id} comment={c} onReply={(b) => create(b, c.id)} />
-          ))
+          <>
+            {showPreviousBtn && (
+              <div className="_previous_comment">
+                <button type="button" className="_previous_comment_txt" onClick={loadPrevious} disabled={loadingMore}>
+                  {loadingMore ? "Loading…" : `View ${hiddenCount} previous comment${hiddenCount === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            )}
+            {visible.map((c) => (
+              <CommentItem key={c.id} comment={c} onReply={(b) => create(b, c.id)} />
+            ))}
+          </>
         )}
       </div>
     </>
@@ -110,7 +132,7 @@ function CommentItem({
   return (
     <div className="_comment_main">
       <div className="_comment_image">
-        <img src={AVATAR} alt="" className="_comment_img1" />
+        <img src={avatarFor(comment.author.id)} alt="" className="_comment_img1" />
       </div>
       <div className="_comment_area" style={{ flex: 1 }}>
         <div className="_comment_details">
@@ -159,7 +181,7 @@ function ReplyItem({
   return (
     <div className="_comment_main" style={{ marginTop: 10 }}>
       <div className="_comment_image">
-        <img src={AVATAR} alt="" className="_comment_img1" />
+        <img src={avatarFor(reply.author.id)} alt="" className="_comment_img1" />
       </div>
       <div className="_comment_area" style={{ flex: 1 }}>
         <div className="_comment_details">
@@ -208,33 +230,40 @@ function CommentActions({
   const when = new Date(node.createdAt).toLocaleDateString();
 
   return (
-    <div className="_comment_reply">
-      <div className="_comment_reply_num">
-        <ul className="_comment_reply_list">
-          <li>
-            <button type="button" onClick={toggle} style={link(liked)}>
-              {liked ? "Liked" : "Like"}
-            </button>
-          </li>
-          {count > 0 && (
+    <>
+      {/* Like count badge, bottom-right of the comment bubble (reference). */}
+      {count > 0 && (
+        <div className="_total_reactions" style={{ cursor: "pointer" }} onClick={() => setShowLikers((s) => !s)}>
+          <div className="_total_react">
+            <span className="_reaction_like" dangerouslySetInnerHTML={html(I.ICON_THUMB)} />
+            <span className="_reaction_heart" dangerouslySetInnerHTML={html(I.ICON_HEART)} />
+          </div>
+          <span className="_total">{count}</span>
+        </div>
+      )}
+
+      <div className="_comment_reply">
+        <div className="_comment_reply_num">
+          <ul className="_comment_reply_list">
             <li>
-              <button type="button" onClick={() => setShowLikers((s) => !s)} style={link(false)}>
-                {count}
+              <button type="button" onClick={toggle} style={link(liked)}>
+                {liked ? "Liked" : "Like"}
               </button>
             </li>
-          )}
-          <li>
-            <button type="button" onClick={onReplyClick} style={link(false)}>
-              Reply
-            </button>
-          </li>
-          <li>
-            <span className="_time_link">.{when}</span>
-          </li>
-        </ul>
+            <li>
+              <button type="button" onClick={onReplyClick} style={link(false)}>
+                Reply
+              </button>
+            </li>
+            <li>
+              <span className="_time_link">.{when}</span>
+            </li>
+          </ul>
+        </div>
       </div>
+
       {showLikers && <WhoLiked endpoint={`/api/comments/${node.id}/likes`} />}
-    </div>
+    </>
   );
 }
 
@@ -245,6 +274,7 @@ function Composer({
   onSubmit: (body: string) => Promise<void>;
   placeholder?: string;
 }) {
+  const currentUserId = useCurrentUserId();
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -268,7 +298,7 @@ function Composer({
       <form className="_feed_inner_comment_box_form" onSubmit={submit}>
         <div className="_feed_inner_comment_box_content">
           <div className="_feed_inner_comment_box_content_image">
-            <img src={AVATAR} alt="" className="_comment_img" />
+            <img src={avatarFor(currentUserId ?? "me")} alt="" className="_comment_img" />
           </div>
           <div className="_feed_inner_comment_box_content_txt" style={{ flex: 1 }}>
             <input

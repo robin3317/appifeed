@@ -49,4 +49,5 @@ export type CommentNode = {
 export type CommentsResponse = {
   comments: CommentNode[];
   nextCursor: string | null;
+  total: number; // total top-level comments on the post
 };
