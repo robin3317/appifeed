@@ -6,7 +6,7 @@ import { upload } from "@vercel/blob/client";
 import type { FeedPost, FeedResponse, Visibility } from "@/lib/types";
 import { avatarFor } from "@/lib/avatar";
 import { useLike } from "./use-like";
-import { WhoLiked } from "./who-liked";
+import { LikesModal } from "./likes-modal";
 import CommentThread from "./comment-thread";
 import { CurrentUserContext, useCurrentUserId } from "./current-user";
 import * as I from "./icons";
@@ -305,9 +305,7 @@ function PostActions({ post }: { post: FeedPost }) {
       </div>
 
       {showLikers && (
-        <div className="_padd_r24 _padd_l24">
-          <WhoLiked endpoint={`/api/posts/${post.id}/likes`} />
-        </div>
+        <LikesModal endpoint={`/api/posts/${post.id}/likes`} onClose={() => setShowLikers(false)} />
       )}
 
       <div className="_feed_inner_timeline_reaction">

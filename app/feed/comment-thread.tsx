@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import type { CommentNode, CommentsResponse } from "@/lib/types";
 import { avatarFor } from "@/lib/avatar";
 import { useLike } from "./use-like";
-import { WhoLiked } from "./who-liked";
+import { LikesModal } from "./likes-modal";
 import { useCurrentUserId } from "./current-user";
 import * as I from "./icons";
 
@@ -262,7 +262,9 @@ function CommentActions({
         </div>
       </div>
 
-      {showLikers && <WhoLiked endpoint={`/api/comments/${node.id}/likes`} />}
+      {showLikers && (
+        <LikesModal endpoint={`/api/comments/${node.id}/likes`} onClose={() => setShowLikers(false)} />
+      )}
     </>
   );
 }
