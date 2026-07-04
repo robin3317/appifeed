@@ -120,7 +120,8 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
   }
 
   return (
-    <div className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16">
+    <div className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16" style={{ position: "relative" }}>
+      <VisibilityDropdown value={visibility} onChange={setVisibility} />
       <div className="_feed_inner_text_area_box">
         <div className="_feed_inner_text_area_box_image">
           <img src={avatarFor(currentUserId ?? "me")} alt="" className="_txt_img" />
@@ -128,18 +129,30 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
         <div className="_feed_inner_text_area_box_form" style={{ flex: 1, position: "relative" }}>
           <textarea
             className="form-control _textarea"
-            placeholder="Write something ..."
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={2}
-            style={{ width: "100%", resize: "vertical", paddingRight: 40 }}
+            style={{ width: "100%", resize: "vertical", padding: "14px 120px 14px 16px", lineHeight: 1.4 }}
           />
-          {/* Pencil adornment, vertically aligned with the first line. */}
-          <span
-            aria-hidden
-            style={{ position: "absolute", top: 14, right: 14, display: "inline-flex", pointerEvents: "none" }}
-            dangerouslySetInnerHTML={html(I.ICON_PENCIL)}
-          />
+          {/* Placeholder + pencil, inline (reference). Hidden as soon as you type. */}
+          {text === "" && (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                top: 15,
+                left: 16,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "#8a8f98",
+                pointerEvents: "none",
+              }}
+            >
+              Write something ...
+              <span style={{ display: "inline-flex" }} dangerouslySetInnerHTML={html(I.ICON_PENCIL)} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -199,14 +212,10 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
             </button>
           </div>
           <div className="_feed_inner_text_area_bottom_article _feed_common">
-            <select
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as Visibility)}
-              style={{ padding: "4px 8px", border: "1px solid #e2e2e2", borderRadius: 6, color: "#666" }}
-            >
-              <option value="PUBLIC">🌐 Public</option>
-              <option value="PRIVATE">🔒 Private</option>
-            </select>
+            <button type="button" className="_feed_inner_text_area_bottom_photo_link">
+              <span className="_feed_inner_text_area_bottom_photo_iamge _mar_img" dangerouslySetInnerHTML={html(I.ICON_ARTICLE)} />
+              Article
+            </button>
           </div>
         </div>
         <div className="_feed_inner_text_area_btn">
@@ -215,6 +224,90 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function VisibilityDropdown({
+  value,
+  onChange,
+}: {
+  value: Visibility;
+  onChange: (v: Visibility) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  const label = (v: Visibility) => (v === "PUBLIC" ? "🌐 Public" : "🔒 Private");
+
+  return (
+    <div ref={ref} style={{ position: "absolute", top: 18, right: 22, zIndex: 6 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "5px 12px",
+          border: "1px solid #e2e2e2",
+          borderRadius: 20,
+          background: "#fff",
+          color: "#555",
+          fontSize: 13,
+          cursor: "pointer",
+        }}
+      >
+        {label(value)} <span style={{ fontSize: 9 }}>▾</span>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            right: 0,
+            background: "#fff",
+            border: "1px solid #eee",
+            borderRadius: 8,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+            overflow: "hidden",
+            minWidth: 140,
+          }}
+        >
+          {(["PUBLIC", "PRIVATE"] as Visibility[]).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => {
+                onChange(v);
+                setOpen(false);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "9px 14px",
+                border: "none",
+                background: v === value ? "#f2f6ff" : "#fff",
+                color: "#333",
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              {label(v)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
