@@ -125,27 +125,54 @@ function CreatePostForm({ onCreated }: { onCreated: (post: FeedPost) => void }) 
         <div className="_feed_inner_text_area_box_image">
           <img src={avatarFor(currentUserId ?? "me")} alt="" className="_txt_img" />
         </div>
-        <div className="form-floating _feed_inner_text_area_box_form" style={{ flex: 1 }}>
+        <div className="_feed_inner_text_area_box_form" style={{ flex: 1, position: "relative" }}>
           <textarea
             className="form-control _textarea"
             placeholder="Write something ..."
-            id="createPostTextarea"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            style={{ width: "100%", resize: "vertical", height: 54 }}
+            rows={2}
+            style={{ width: "100%", resize: "vertical", paddingRight: 40 }}
           />
-          <label className="_feed_textarea_label" htmlFor="createPostTextarea">
-            Write something ...{" "}
-            <span style={{ display: "inline-flex" }} dangerouslySetInnerHTML={html(I.ICON_PENCIL)} />
-          </label>
+          {/* Pencil adornment, vertically aligned with the first line. */}
+          <span
+            aria-hidden
+            style={{ position: "absolute", top: 14, right: 14, display: "inline-flex", pointerEvents: "none" }}
+            dangerouslySetInnerHTML={html(I.ICON_PENCIL)}
+          />
         </div>
       </div>
 
+      {/* Full-width image preview under the text (Facebook/Twitter style). */}
       {file && (
-        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
-          <img src={URL.createObjectURL(file)} alt="preview" style={{ height: 56, width: 56, objectFit: "cover", borderRadius: 6 }} />
-          <span style={{ fontSize: 13, color: "#555", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</span>
-          <button type="button" onClick={() => setFile(null)} style={{ border: "none", background: "none", color: "#e5484d", cursor: "pointer" }}>Remove</button>
+        <div style={{ position: "relative", marginTop: 14 }}>
+          <img
+            src={URL.createObjectURL(file)}
+            alt="preview"
+            style={{ width: "100%", maxHeight: 340, objectFit: "cover", borderRadius: 10, display: "block" }}
+          />
+          <button
+            type="button"
+            onClick={() => setFile(null)}
+            aria-label="Remove image"
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(0,0,0,0.6)",
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: 20,
+              lineHeight: "32px",
+              padding: 0,
+            }}
+          >
+            ×
+          </button>
         </div>
       )}
       {error && <p role="alert" style={{ color: "#e5484d", marginTop: 8 }}>{error}</p>}
