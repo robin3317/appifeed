@@ -11,9 +11,9 @@ auth, and read paths designed to stay fast at scale.
 
 ## Live demo & walkthrough
 
-- **Live URL:** _add your Vercel URL_
-- **Video walkthrough:** _add your unlisted YouTube link_
-- **Demo login (after seeding):** `alex0@appifeed.dev` / `password123`
+- **Live URL:** https://appifeed-abdur-rahman-robins-projects.vercel.app/
+- **Video walkthrough:** _coming soon_
+- **Demo login:** `alex0@appifeed.dev` / `password123`
 
 ---
 
